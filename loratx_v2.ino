@@ -1,26 +1,18 @@
 /*********
-  Rui Santos
-  Complete project details at https://RandomNerdTutorials.com/esp-now-many-to-one-esp32/
-  
-  Permission is hereby granted, free of charge, to any person obtaining a copy
-  of this software and associated documentation files.
-  
-  The above copyright notice and this permission notice shall be included in all
-  copies or substantial portions of the Software.
+  Modified from the examples of the Arduino LoRa library
+  More resources: https://randomnerdtutorials.com
 *********/
-
 #include <esp_now.h>
 #include <WiFi.h>
 #include <SPI.h>
-#include <RH_RF95.h>
+#include <LoRa.h>
 
-  #define RFM95_CS    18
-  #define RFM95_INT   26
-  #define RFM95_RST   14
+//define the pins used by the transceiver module
+#define ss 18
+#define rst 14
+#define dio0 26
 
-#define RF95_FREQ 868.0
-
-RH_RF95 rf95(RFM95_CS, RFM95_INT);
+int counter = 0;
 
 // Structure example to receive data
 // Must match the sender structure
@@ -63,7 +55,7 @@ void OnDataRecv(const uint8_t * mac_addr, const uint8_t *incomingData, int len) 
     boardsStruct[0].x = myData.x;
     boardsStruct[0].y = myData.y;
     boardsStruct[0].z = myData.z;
-    Serial.printf("Board 1 - Temperature: %.2f C\n", boardsStruct[0].x);
+    Serial.printf("Board 1 - Temperature: %.2f °C\n", boardsStruct[0].x);
     Serial.printf("Board 1 - Humidity: %.2f %%\n", boardsStruct[0].y);
     Serial.printf("Board 1 - Rain in last minute: %.2f mm\n", boardsStruct[0].z); 
   } else if (myData.id == 2) {
@@ -76,16 +68,30 @@ void OnDataRecv(const uint8_t * mac_addr, const uint8_t *incomingData, int len) 
     Serial.println("Unknown board ID");
   }
 }
- 
-void setup() {
-  pinMode(RFM95_RST, OUTPUT);
-  digitalWrite(RFM95_RST, HIGH);
 
-  //Initialize Serial Monitor
+void setup() {
+  //initialize Serial Monitor
   Serial.begin(115200);
-  while (!Serial) delay(1);
-  delay(100);
+  while (!Serial);
+  Serial.println("LoRa Sender");
+
+  //setup LoRa transceiver module
+  LoRa.setPins(ss, rst, dio0);
   
+  //replace the LoRa.begin(---E-) argument with your location's frequency 
+  //433E6 for Asia
+  //866E6 for Europe
+  //915E6 for North America
+  while (!LoRa.begin(866E6)) {
+    Serial.println(".");
+    delay(500);
+  }
+   // Change sync word (0xF3) to match the receiver
+  // The sync word assures you don't get LoRa messages from other LoRa transceivers
+  // ranges from 0-0xFF
+  LoRa.setSyncWord(0xF3);
+  Serial.println("LoRa Initializing OK!");
+
   //Set device as a Wi-Fi Station
   WiFi.mode(WIFI_STA);
 
@@ -98,70 +104,35 @@ void setup() {
   // Once ESPNow is successfully Init, we will register for recv CB to
   // get recv packer info
   esp_now_register_recv_cb(OnDataRecv);
-
-  digitalWrite(RFM95_RST, LOW);
-  delay(10);
-  digitalWrite(RFM95_RST, HIGH);
-  delay(10);
-
-  while (!rf95.init()) {
-    Serial.println("LoRa radio init failed");
-    Serial.println("Uncomment '#define SERIAL_DEBUG' in RH_RF95.cpp for detailed debug info");
-    while (1);
-  }
-  Serial.println("LoRa radio init OK!");
-
-  // Defaults after init are 434.0MHz, modulation GFSK_Rb250Fd250, +13dbM
-  if (!rf95.setFrequency(RF95_FREQ)) {
-    Serial.println("setFrequency failed");
-    while (1);
-  }
-  Serial.print("Set Freq to: "); Serial.println(RF95_FREQ);
-
-  rf95.setTxPower(23, false);
 }
 
-int16_t packetnum = 0;
- 
 void loop() {
-  Serial.println("Transmitting..."); // Send a message to rf95_server
+  Serial.print("Sending packet: ");
+  Serial.println(counter);
 
-  char radiopacket[20] = "Hello World #      ";
-  itoa(packetnum++, radiopacket+13, 10);
-  Serial.print("Sending "); Serial.println(radiopacket);
-  radiopacket[19] = 0;
-
-  Serial.println("Sending...");
-  delay(10);
-  rf95.send((uint8_t *)radiopacket, 20);
-
-  Serial.println("Waiting for packet to complete...");
-  delay(10);
-  rf95.waitPacketSent();
-  // Now wait for a reply
-  uint8_t buf[RH_RF95_MAX_MESSAGE_LEN];
-  uint8_t len = sizeof(buf);
-
-  Serial.println("Waiting for reply...");
-  if (rf95.waitAvailableTimeout(1000)) {
-    // Should be a reply message for us now
-    if (rf95.recv(buf, &len)) {
-  // Acess the variables for each board
+  //Send LoRa packet to receiver
+  LoRa.beginPacket();
+  LoRa.println("hello ");
+   if (myData.id == 1) {
+  LoRa.printf("Board 1 - Temperature: %.2f °C\n", boardsStruct[0].x);
   float board1X = boardsStruct[0].x;
+  LoRa.printf("Board 1 - Humidity: %.2f %%\n", boardsStruct[0].y);
   float board1Y = boardsStruct[0].y;
+  LoRa.printf("Board 1 - Rain in last minute: %.2f mm\n", boardsStruct[0].z);
   float board1Z = boardsStruct[0].z;
+  } else if (myData.id == 2) {
+  LoRa.printf("Board 2 - Flow Rate: %.2f L/min\n", boardsStruct[1].x);
   float board2X = boardsStruct[1].x;
+  LoRa.printf("Board 2 - Water Level: %.2f cm\n", boardsStruct[1].y);
   float board2Y = boardsStruct[1].y;
-  /*int board2X = boardsStruct[1].x;
-  int board2Y = boardsStruct[1].y;
-  int board3X = boardsStruct[2].x;
-  int board3Y = boardsStruct[2].y;*/
   } else {
-      Serial.println("Receive failed");
-    }
-  } else {
-    Serial.println("No reply, is there a listener around?");
+    // Handle other boards if needed
+    Serial.println("Unknown board ID");
   }
+  LoRa.print(counter);
+    LoRa.endPacket();
 
-  delay(10000);  
+  counter++;
+
+  delay(10000);
 }
