@@ -1,13 +1,3 @@
-/*********
-  Rui Santos
-  Complete project details at https://RandomNerdTutorials.com/esp-now-many-to-one-esp32/
-  
-  Permission is hereby granted, free of charge, to any person obtaining a copy
-  of this software and associated documentation files.
-  
-  The above copyright notice and this permission notice shall be included in all
-  copies or substantial portions of the Software.
-*********/
 
 #include <esp_now.h>
 #include <WiFi.h>
@@ -18,7 +8,7 @@
 #define DHTPIN 4 
 #define DHTTYPE DHT22
 DHT dht(DHTPIN, DHTTYPE);
-#define RainPin 2  
+#define RainPin 2 
 
 bool bucketPositionA = false;             // one of the two positions of tipping-bucket               
 const double bucketAmount = 0.4090909;   // inches equivalent of ml to trip tipping-bucket
@@ -30,7 +20,7 @@ bool first;                               // as we want readings of the (MHz) lo
 RTC_Millis rtc;
 
 // REPLACE WITH THE RECEIVER'S MAC Address
-uint8_t broadcastAddress[] = {0x10, 0x52, 0x1C, 0x64, 0xEF, 0x6C};
+uint8_t broadcastAddress[] = {0xC8, 0xF0, 0x9E, 0x85, 0xA5, 0xC4};
 
 // Structure example to send data
 // Must match the receiver structure
@@ -107,25 +97,23 @@ DateTime now = rtc.now();
   float h = dht.readHumidity();
   // Read temperature as Celsius (the default)
   float t = dht.readTemperature();
-  // Read temperature as Fahrenheit (isFahrenheit = true)
-  float f = dht.readTemperature(true);
 
   // Check if any reads failed and exit early (to try again).
-  if (isnan(h) || isnan(t) || isnan(f)) {
+  if (isnan(h) || isnan(t)) {
     Serial.println(F("Failed to read from DHT sensor!"));
     return;
   }
-  Serial.print(F("Humidity: "));
-  Serial.print(h);
-  Serial.print(F("%  Temperature: "));
-  Serial.print(t);
-  Serial.println(F("°C "));
 
 if(now.second() == 0 && first == true) {
   minuteRain = dailyRain - dailyRain_till_LastMinute;      // calculate the last hour's rain
   dailyRain_till_LastMinute = dailyRain;                   // update the rain till last hour for next calculation
 
   // facny display for humans to comprehend
+  Serial.print(F("Humidity: "));
+  Serial.print(h);
+  Serial.print(F("%  Temperature: "));
+  Serial.print(t);
+  Serial.println(F("°C "));
   Serial.print("Rain in last minute = ");
   Serial.print(minuteRain,2);
   Serial.println(" mm");
@@ -136,7 +124,7 @@ if(now.second() == 0 && first == true) {
   dailyRain = 0.0;                                      // clear daily-rain at midnight
   dailyRain_till_LastMinute = 0.0;                        // we do not want negative rain at 01:00
   }
-}
+
 
   // Set values to send
   myData.id = 1;
@@ -158,4 +146,5 @@ if(now.second() == 0 && first == true) {
   // Deep sleep for 10 seconds using timer
   esp_sleep_enable_timer_wakeup(10 * 1000000); // 10 seconds
   esp_deep_sleep_start();
+}
 }
