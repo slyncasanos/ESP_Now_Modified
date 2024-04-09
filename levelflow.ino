@@ -30,7 +30,7 @@ unsigned int flowMilliLitres;
 unsigned long totalMilliLitres;
 
 // REPLACE WITH THE RECEIVER'S MAC Address
-uint8_t broadcastAddress[] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};
+uint8_t broadcastAddress[] = {0xC8, 0xF0, 0x9E, 0x85, 0xA5, 0xC4};
 
 // Structure example to send data
 // Must match the receiver structure
